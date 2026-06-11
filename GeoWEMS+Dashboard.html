@@ -1,0 +1,2391 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GeoWEMS+ — Dashboard Monitoring Cuaca</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    /* =========================================================
+       RESET & BASE
+    ========================================================= */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-page:       #f0f4f8;
+      --bg-card:       #ffffff;
+      --bg-metric:     #f5f7fa;
+      --bg-row:        #f9fafb;
+      --text-primary:  #0f172a;
+      --text-secondary:#475569;
+      --text-muted:    #94a3b8;
+      --border:        #e2e8f0;
+      --blue-dark:     #003087;
+      --blue-mid:      #185fa5;
+      --blue-light:    #dbeafe;
+      --green:         #166534;
+      --green-bg:      #dcfce7;
+      --yellow:        #854d0e;
+      --yellow-bg:     #fef9c3;
+      --red:           #991b1b;
+      --red-bg:        #fee2e2;
+      --shadow:        0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+      --radius:        10px;
+      --radius-sm:     6px;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg-page);
+      color: var(--text-primary);
+      min-height: 100vh;
+      padding: 0 0 2rem;
+    }
+
+    /* =========================================================
+       TOPBAR
+    ========================================================= */
+    .topbar {
+      background: var(--blue-dark);
+      color: #fff;
+      padding: 0 1.5rem;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .pln-logo {
+      background: #fff;
+      color: var(--blue-dark);
+      font-weight: 700;
+      font-size: 13px;
+      padding: 3px 10px;
+      border-radius: 4px;
+      letter-spacing: 1px;
+    }
+
+    .topbar-title {
+      font-size: 15px;
+      font-weight: 500;
+    }
+
+    .topbar-sub {
+      font-size: 12px;
+      opacity: .7;
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+    }
+
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      background: #4ade80;
+      border-radius: 50%;
+      animation: pulse 1.4s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: .35; }
+    }
+
+    /* =========================================================
+       LAYOUT WRAPPER
+    ========================================================= */
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 1.25rem 1.5rem;
+    }
+
+    /* =========================================================
+       REGION TABS
+    ========================================================= */
+    .tabs {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+
+    .tab {
+      font-size: 13px;
+      padding: 6px 14px;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      cursor: pointer;
+      background: var(--bg-card);
+      color: var(--text-secondary);
+      transition: all .15s;
+      user-select: none;
+    }
+
+    .tab:hover { border-color: var(--blue-mid); color: var(--blue-mid); }
+
+    .tab.active {
+      background: var(--blue-dark);
+      color: #fff;
+      border-color: var(--blue-dark);
+    }
+
+    /* =========================================================
+       ALERT BANNER
+    ========================================================= */
+    .alert-banner {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      border-radius: var(--radius-sm);
+      margin-bottom: 1rem;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .alert-warn { background: var(--yellow-bg); color: var(--yellow); border: 1px solid #fde68a; }
+    .alert-ok   { background: var(--green-bg);  color: var(--green);  border: 1px solid #86efac; }
+    .alert-alert{ background: var(--red-bg);    color: var(--red);    border: 1px solid #fca5a5; }
+
+    /* =========================================================
+       METRICS GRID
+    ========================================================= */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+      margin-bottom: 1.25rem;
+    }
+
+    .metric-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .metric-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      margin-bottom: 8px;
+    }
+
+    .metric-value {
+      font-size: 28px;
+      font-weight: 600;
+      color: var(--text-primary);
+      line-height: 1;
+    }
+
+    .metric-unit {
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--text-secondary);
+      margin-left: 3px;
+    }
+
+    .metric-trend {
+      font-size: 11px;
+      margin-top: 6px;
+    }
+
+    .trend-up     { color: #ef4444; }
+    .trend-down   { color: #22c55e; }
+    .trend-stable { color: var(--text-muted); }
+
+    /* =========================================================
+       TWO-COLUMN GRID
+    ========================================================= */
+    .grid2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    @media (max-width: 768px) {
+      .grid2 { grid-template-columns: 1fr; }
+    }
+
+    /* =========================================================
+       CARD
+    ========================================================= */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.1rem 1.25rem;
+      box-shadow: var(--shadow);
+    }
+
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .card-title svg {
+      width: 15px;
+      height: 15px;
+      opacity: .6;
+    }
+
+    /* =========================================================
+       STATION LIST
+    ========================================================= */
+    .station-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .station-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 10px;
+      border-radius: var(--radius-sm);
+      background: var(--bg-row);
+      border: 1px solid var(--border);
+    }
+
+    .station-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .icon-normal { background: var(--green-bg); }
+    .icon-warn   { background: var(--yellow-bg); }
+    .icon-alert  { background: var(--red-bg); }
+
+    .station-info { flex: 1; min-width: 0; }
+
+    .station-name {
+      font-size: 13px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .station-loc {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .station-right { text-align: right; }
+
+    .station-temp {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      margin-top: 3px;
+    }
+
+    .badge-normal { background: var(--green-bg);  color: var(--green); }
+    .badge-warn   { background: var(--yellow-bg); color: var(--yellow); }
+    .badge-alert  { background: var(--red-bg);    color: var(--red); }
+
+    /* =========================================================
+       CHART
+    ========================================================= */
+    .chart-wrap {
+      position: relative;
+      width: 100%;
+      height: 180px;
+    }
+
+    /* =========================================================
+       FORECAST
+    ========================================================= */
+    .forecast-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .fc-item {
+      flex: 1;
+      text-align: center;
+      padding: 10px 6px;
+      background: var(--bg-row);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+    }
+
+    .fc-day    { font-size: 11px; font-weight: 600; color: var(--text-secondary); }
+    .fc-date   { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+    .fc-icon   { font-size: 22px; margin: 6px 0 4px; }
+    .fc-label  { font-size: 9px; color: var(--text-muted); margin-bottom: 4px; line-height: 1.2; min-height: 22px; }
+    .fc-hi     { font-size: 15px; font-weight: 700; color: #ef4444; }
+    .fc-lo     { font-size: 11px; color: #3b82f6; margin-top: 1px; }
+    .fc-rain   { font-size: 10px; color: #3b82f6; margin-top: 4px; }
+    .fc-precip { font-size: 10px; color: #6366f1; margin-top: 2px; }
+    .fc-item.today { border-color: var(--blue-mid); background: var(--blue-light); }
+
+    /* =========================================================
+       RISK GRID
+    ========================================================= */
+    .risk-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .risk-item {
+      padding: 10px;
+      background: var(--bg-row);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+    }
+
+    .risk-label {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-bottom: 7px;
+    }
+
+    .risk-bar-wrap {
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .risk-bar {
+      height: 100%;
+      border-radius: 3px;
+      transition: width .4s ease;
+    }
+
+    .risk-val {
+      font-size: 12px;
+      font-weight: 600;
+      margin-top: 5px;
+    }
+
+    /* =========================================================
+       EVENT LOG
+    ========================================================= */
+    .log-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .log-row:last-child { border-bottom: none; }
+
+    .log-time  { font-size: 11px; color: var(--text-muted); width: 44px; flex-shrink: 0; }
+    .log-event { font-size: 12px; flex: 1; }
+    .log-badge { font-size: 10px; padding: 2px 8px; border-radius: 20px; }
+
+    /* =========================================================
+       MAP MONITORING
+    ========================================================= */
+    .map-section {
+      margin-bottom: 12px;
+    }
+
+    .map-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .map-legend {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      border: 2px solid rgba(0,0,0,.15);
+    }
+
+    #weatherMap {
+      width: 100%;
+      height: 420px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+
+    /* Custom marker styles */
+    .weather-marker {
+      background: white;
+      border-radius: 10px;
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+      box-shadow: 0 2px 8px rgba(0,0,0,.2);
+      border: 2px solid #003087;
+      text-align: center;
+      cursor: pointer;
+      transition: transform .15s;
+    }
+
+    .weather-marker:hover { transform: scale(1.05); }
+    .weather-marker.status-normal { border-color: #166534; }
+    .weather-marker.status-warn   { border-color: #854d0e; }
+    .weather-marker.status-alert  { border-color: #991b1b; animation: markerPulse 1s infinite; }
+
+    @keyframes markerPulse {
+      0%, 100% { box-shadow: 0 2px 8px rgba(153,27,27,.3); }
+      50%       { box-shadow: 0 2px 16px rgba(153,27,27,.7); }
+    }
+
+    .marker-icon    { font-size: 14px; line-height: 1; }
+    .marker-name    { font-size: 9px; color: #475569; margin-top: 1px; max-width: 80px; overflow: hidden; text-overflow: ellipsis; }
+    .marker-temp    { font-size: 13px; font-weight: 700; color: #0f172a; }
+    .marker-weather { font-size: 11px; }
+
+    .region-label {
+      background: rgba(0,48,135,.85);
+      color: white;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    /* Map popup */
+    .leaflet-popup-content-wrapper {
+      border-radius: 10px !important;
+      box-shadow: 0 4px 20px rgba(0,0,0,.15) !important;
+      border: 1px solid var(--border);
+    }
+
+    .map-popup {
+      min-width: 200px;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+
+    .popup-header {
+      background: var(--blue-dark);
+      color: white;
+      margin: -12px -12px 10px;
+      padding: 10px 12px;
+      border-radius: 8px 8px 0 0;
+      font-weight: 600;
+      font-size: 13px;
+    }
+
+    .popup-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .popup-item {
+      background: var(--bg-row);
+      border-radius: 6px;
+      padding: 6px 8px;
+      border: 1px solid var(--border);
+    }
+
+    .popup-item-label { font-size: 10px; color: var(--text-muted); }
+    .popup-item-val   { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+
+    .popup-status {
+      margin-top: 8px;
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    .map-controls {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .map-btn {
+      font-size: 11px;
+      padding: 4px 10px;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      cursor: pointer;
+      background: var(--bg-card);
+      color: var(--text-secondary);
+      transition: all .15s;
+    }
+
+    .map-btn:hover, .map-btn.active {
+      background: var(--blue-dark);
+      color: white;
+      border-color: var(--blue-dark);
+    }
+
+    /* Overlay layer toggles */
+    .layer-toggle {
+      display: flex;
+      gap: 6px;
+      margin-top: 6px;
+      flex-wrap: wrap;
+    }
+
+    .layer-chip {
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      background: var(--bg-card);
+      color: var(--text-secondary);
+      transition: all .15s;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .layer-chip.on {
+      background: #e0f2fe;
+      border-color: #38bdf8;
+      color: #0369a1;
+    }
+
+
+    /* =========================================================
+       PRAKIRAAN PER JAM — tabel vertikal, scroll tetap
+    ========================================================= */
+    .hourly-wrap {
+      max-height: 260px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+    .hourly-wrap::-webkit-scrollbar { width: 4px; }
+    .hourly-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .hourly-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .hourly-table thead th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: var(--bg-metric);
+      padding: 7px 10px;
+      text-align: center;
+      font-weight: 600;
+      color: var(--text-secondary);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+      border-bottom: 2px solid var(--border);
+      white-space: nowrap;
+    }
+
+    .hourly-table thead th:first-child { text-align: left; }
+
+    .hourly-table tbody td {
+      padding: 6px 10px;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      color: var(--text-primary);
+    }
+
+    .hourly-table tbody td:first-child { text-align: left; font-weight: 600; white-space: nowrap; min-width: 90px; }
+    .hourly-table tbody tr:last-child td { border-bottom: none; }
+    .hourly-table tbody tr:hover { background: var(--bg-row); }
+
+    .hourly-table tbody tr.now-row {
+      background: var(--blue-light);
+    }
+    .hourly-table tbody tr.now-row td { font-weight: 600; }
+    .hourly-table tbody tr.now-row td:first-child {
+      color: var(--blue-mid);
+    }
+    .hourly-table tbody tr.now-row td:first-child::after {
+      content: ' ◀';
+      font-size: 10px;
+      color: var(--blue-mid);
+    }
+
+    .hourly-empty {
+      padding: 20px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+
+
+    .footer {
+      text-align: center;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 1.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===================== TOPBAR ===================== -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/9/97/Logo_PLN.png"
+      alt="Logo PLN"
+      style="height: 36px; width:auto" />
+      <div>
+        <div class="topbar-title">GeoWEMS+</div>
+        <div class="topbar-sub">Unit Induk Distribusi — Kalimantan Barat</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="live-dot"></div>
+      <span>LIVE</span>
+      <span style="opacity:.4; margin:0 4px">|</span>
+      <span id="clock">--:--:--</span>
+    </div>
+  </div>
+
+  <!-- ===================== MAIN ===================== -->
+  <div class="container">
+
+    <!-- Region Tabs -->
+    <div class="tabs" id="tabs">
+      <div class="tab active"  data-region="pontianak">Pontianak</div>
+      <div class="tab" data-region="singkawang">Singkawang</div>
+      <div class="tab" data-region="ketapang">Ketapang</div>
+      <div class="tab" data-region="sanggau">Sanggau</div>
+      <div class="tab" data-region="mempawah">Mempawah</div>
+    </div>
+
+    <!-- Alert Banner -->
+    <div id="alert-zone"></div>
+
+    <!-- Metrics -->
+    <div class="metrics-grid" id="metrics-grid"></div>
+
+    <!-- Row 1: Stations + Temp Chart -->
+    <div class="grid2">
+      <div class="card">
+        <div class="card-title">
+          <!-- Lightning icon -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L4.5 13.5H12L11 22L19.5 10.5H12L13 2Z"/></svg>
+          Status Gardu Induk &amp; Pembangkit
+        </div>
+        <div class="station-list" id="station-list"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <!-- Chart icon -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Tren Suhu 60 Menit Terakhir
+        </div>
+        <div class="chart-wrap">
+          <canvas id="tempChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 2: Forecast + Risk -->
+    <div class="grid2">
+      <div class="card">
+        <div class="card-title">
+          <!-- Calendar icon -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          Prakiraan Cuaca 5 Hari (BMKG)
+        </div>
+        <div class="forecast-row" id="forecast-row"></div>
+
+        <!-- Prakiraan Per Jam -->
+        <div style="margin-top:14px">
+          <div style="font-size:12px; font-weight:600; color:var(--text-secondary); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px">
+            ⏱ Prakiraan Per Jam
+          </div>
+          <div class="hourly-wrap">
+            <div id="hourly-forecast"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <!-- Alert icon -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Indeks Risiko Operasional
+        </div>
+        <div class="risk-grid" id="risk-grid"></div>
+      </div>
+    </div>
+
+    <!-- ===== MAP WEATHER MONITORING ===== -->
+    <div class="card map-section">
+      <div class="map-header">
+        <div class="card-title" style="margin-bottom:0">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          Peta Monitoring Cuaca — Kalimantan Barat
+        </div>
+        <div class="map-controls">
+          <button class="map-btn active" id="btnAllRegions" onclick="mapFocusAll()">Semua Wilayah</button>
+          <button class="map-btn" id="btnFocusCurrent" onclick="mapFocusCurrent()">Fokus Aktif</button>
+        </div>
+      </div>
+
+      <div class="layer-toggle">
+        <div class="layer-chip on" id="chipStations"  onclick="toggleLayer('stations')">⚡ Gardu Induk</div>
+        <div class="layer-chip on" id="chipRegions"   onclick="toggleLayer('regions')">📍 Label Wilayah</div>
+        <div class="layer-chip on" id="chipRisk"      onclick="toggleLayer('risk')">🔥 Zona Risiko</div>
+        <div class="layer-chip on" id="chipTransmisi" onclick="toggleLayer('transmisi')">〰 Jalur Transmisi</div>
+      </div>
+
+      <div id="weatherMap" style="margin-top:10px"></div>
+
+      <div class="map-legend" style="margin-top:8px">
+        <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div> Normal</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div> Waspada</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div> Kritis</div>
+        <div class="legend-item" style="margin-left:auto; font-size:10px; color:var(--text-muted)">
+          Klik marker untuk detail cuaca per gardu
+        </div>
+      </div>
+    </div>
+
+    <!-- Event Log -->
+    <div class="card">
+      <div class="card-title">
+        <!-- History icon -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Log Kejadian Cuaca Terkini
+      </div>
+      <div id="event-log"></div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      PLN SCADA Weather Dashboard &mdash; Data Open-Meteo (10 menit) + Petir Real-Time Blitzortung WebSocket &mdash; Protokol: IEC 60870-5-104 / DNP3 / MODBUS
+    </div>
+
+  </div><!-- /container -->
+
+  <!-- ===================== SCRIPT ===================== -->
+  <script>
+    // -------------------------------------------------------
+    // DATA PER WILAYAH
+    // -------------------------------------------------------
+    const regions = {
+      pontianak: {
+        temp: 32.4, humid: 87, wind: 18, rain: 12.3, lightning: 3,
+        alerts: [],
+        stations: [
+          { name: 'GI Siantan 150kV',   loc: 'Pontianak Utara',  temp: 32.1, status: 'normal', icon: '⚡' },
+          { name: 'GI Sei Raya 150kV', loc: 'Pontianak Kota',   temp: 33.0, status: 'normal', icon: '⚡' },
+          { name: 'PLTD Sei Raya',      loc: 'Kubu Raya',        temp: 31.8, status: 'normal', icon: '🏭' },
+          { name: 'GI Jeruju 20kV',     loc: 'Pontianak Barat',  temp: 32.6, status: 'normal', icon: '⚡' },
+        ],
+        forecast: [
+          { day: 'Sen', icon: '⛈', hi: 33, lo: 26, rain: 85 },
+          { day: 'Sel', icon: '🌧', hi: 31, lo: 25, rain: 70 },
+          { day: 'Rab', icon: '🌦', hi: 34, lo: 27, rain: 40 },
+          { day: 'Kam', icon: '⛅', hi: 35, lo: 28, rain: 20 },
+          { day: 'Jum', icon: '☀️', hi: 36, lo: 29, rain: 10 },
+        ],
+        risks: { petir: 72, banjir: 55, angin: 48, kabut: 30 },
+        tempHistory: [30.1, 30.8, 31.5, 32.0, 32.4, 32.4],
+        raw: { cape:0, lightning_potential:0, wind_gusts:0, uv_index:0, soil_moisture:0 },
+        hourlyForecast: [],
+      },
+
+      singkawang: {
+        temp: 29.8, humid: 82, wind: 12, rain: 5.1, lightning: 1,
+        alerts: [],
+        stations: [
+          { name: 'GI Singkawang 70kV', loc: 'Singkawang Tengah',  temp: 29.5, status: 'normal', icon: '⚡' },
+          { name: 'PLTD Sei Wie',    loc: 'Singkawang Selatan', temp: 30.1, status: 'normal', icon: '🏭' },
+          { name: 'GI Sambas 70kV',     loc: 'Sambas Kota',          temp: 28.9, status: 'normal', icon: '⚡' },
+        ],
+        forecast: [
+          { day: 'Sen', icon: '⛅', hi: 31, lo: 24, rain: 25 },
+          { day: 'Sel', icon: '☀️', hi: 33, lo: 25, rain: 10 },
+          { day: 'Rab', icon: '🌦', hi: 30, lo: 24, rain: 45 },
+          { day: 'Kam', icon: '🌧', hi: 29, lo: 23, rain: 65 },
+          { day: 'Jum', icon: '⛈', hi: 28, lo: 23, rain: 80 },
+        ],
+        risks: { petir: 30, banjir: 25, angin: 22, kabut: 40 },
+        tempHistory: [28.2, 28.9, 29.2, 29.5, 29.7, 29.8],
+        raw: { cape:0, lightning_potential:0, wind_gusts:0, uv_index:0, soil_moisture:0 },
+        hourlyForecast: [],
+      },
+
+      ketapang: {
+        temp: 34.1, humid: 75, wind: 9, rain: 0.5, lightning: 0,
+        alerts: [],
+        stations: [
+          { name: 'GI Ketapang 150kV', loc: 'Ketapang Kota', temp: 34.5, status: 'normal', icon: '⚡' },
+          { name: 'PLTU Ketapang',     loc: 'Delta Pawan',   temp: 33.8, status: 'normal', icon: '🏭' },
+        ],
+        forecast: [
+          { day: 'Sen', icon: '☀️', hi: 36, lo: 27, rain: 5  },
+          { day: 'Sel', icon: '☀️', hi: 37, lo: 28, rain: 5  },
+          { day: 'Rab', icon: '⛅', hi: 35, lo: 27, rain: 15 },
+          { day: 'Kam', icon: '🌦', hi: 33, lo: 26, rain: 35 },
+          { day: 'Jum', icon: '⛅', hi: 34, lo: 27, rain: 20 },
+        ],
+        risks: { petir: 10, banjir: 15, angin: 12, kabut: 8 },
+        tempHistory: [31.0, 32.2, 33.1, 33.7, 34.0, 34.1],
+        raw: { cape:0, lightning_potential:0, wind_gusts:0, uv_index:0, soil_moisture:0 },
+        hourlyForecast: [],
+      },
+
+      sanggau: {
+        temp: 31.2, humid: 90, wind: 22, rain: 28.5, lightning: 7,
+        alerts: [],
+        stations: [
+          { name: 'GI Sanggau 70kV', loc: 'Sanggau Kota',   temp: 30.8, status: 'normal', icon: '⚡' },
+          { name: 'GI Sekadau',      loc: 'Sekadau Hilir',  temp: 31.5, status: 'normal', icon: '⚡' },
+          { name: 'PLTU Sanggau',    loc: 'Sungai Kapuas',  temp: 29.2, status: 'normal', icon: '💧' },
+        ],
+        forecast: [
+          { day: 'Sen', icon: '⛈', hi: 31, lo: 24, rain: 95 },
+          { day: 'Sel', icon: '⛈', hi: 30, lo: 24, rain: 90 },
+          { day: 'Rab', icon: '🌧', hi: 32, lo: 25, rain: 75 },
+          { day: 'Kam', icon: '🌦', hi: 33, lo: 25, rain: 50 },
+          { day: 'Jum', icon: '⛅', hi: 34, lo: 26, rain: 25 },
+        ],
+        risks: { petir: 91, banjir: 78, angin: 85, kabut: 60 },
+        tempHistory: [29.5, 30.1, 30.5, 31.0, 31.2, 31.2],
+        raw: { cape:0, lightning_potential:0, wind_gusts:0, uv_index:0, soil_moisture:0 },
+        hourlyForecast: [],
+      },
+
+      mempawah: {
+        temp: 30.5, humid: 85, wind: 14, rain: 8.2, lightning: 2,
+        alerts: [],
+        stations: [
+          { name: 'GI Senggiring 70kV', loc: 'Mempawah Kota', temp: 30.2, status: 'normal', icon: '⚡' },
+        ],
+        forecast: [
+          { day: 'Sen', icon: '🌦', hi: 32, lo: 25, rain: 55 },
+          { day: 'Sel', icon: '⛈', hi: 30, lo: 24, rain: 80 },
+          { day: 'Rab', icon: '🌧', hi: 31, lo: 25, rain: 65 },
+          { day: 'Kam', icon: '⛅', hi: 33, lo: 26, rain: 20 },
+          { day: 'Jum', icon: '☀️', hi: 35, lo: 27, rain: 10 },
+        ],
+        risks: { petir: 45, banjir: 50, angin: 35, kabut: 42 },
+        tempHistory: [28.8, 29.3, 29.8, 30.1, 30.4, 30.5],
+        raw: { cape:0, lightning_potential:0, wind_gusts:0, uv_index:0, soil_moisture:0 },
+        hourlyForecast: [],
+      },
+    };
+
+    // -------------------------------------------------------
+    // LOG KEJADIAN — otomatis dari perubahan data BMKG
+    // -------------------------------------------------------
+    const eventLog = [];          // mulai kosong, diisi otomatis
+    const MAX_LOG   = 100;        // simpan max 100 entri
+    let   historyLoaded = false;  // flag agar histori hanya dimuat sekali
+
+    // Snapshot kondisi sebelumnya untuk deteksi perubahan
+    const prevState = {};
+
+    const regionNames = {
+      pontianak: 'Pontianak', singkawang: 'Singkawang',
+      ketapang: 'Ketapang', sanggau: 'Sanggau', mempawah: 'Mempawah',
+    };
+
+    function logTime() {
+      return new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function addLog(event, type, timeStr) {
+      eventLog.unshift({ time: timeStr || logTime(), event, type });
+      if (eventLog.length > MAX_LOG) eventLog.pop();
+    }
+
+    function addLogSorted(event, type, timeStr) {
+      // Tambah ke array lalu urutkan descending (terbaru di atas)
+      eventLog.push({ time: timeStr, event, type });
+      eventLog.sort((a, b) => b.time.localeCompare(a.time));
+      if (eventLog.length > MAX_LOG) eventLog.length = MAX_LOG;
+    }
+
+    function checkAndLog() {
+      const t = logTime();
+      let anyChange = false;
+
+      for (const key in regions) {
+        const d    = regions[key];
+        const prev = prevState[key];
+        const name = regionNames[key];
+
+        if (!prev) {
+          // Entri pertama saat data berhasil dimuat
+          prevState[key] = {
+            temp: d.temp, humid: d.humid, wind: d.wind,
+            rain: d.rain, lightning: d.lightning,
+            riskPetir: d.risks.petir, riskBanjir: d.risks.banjir,
+            riskAngin: d.risks.angin,
+          };
+          continue;
+        }
+
+        // ── Suhu ekstrem ──────────────────────────────────────
+        if (d.temp > 36 && prev.temp <= 36)
+          addLog(`🌡 Suhu sangat tinggi ${d.temp}°C terdeteksi di ${name}`, 'alert');
+        else if (d.temp > 33 && prev.temp <= 33)
+          addLog(`🌡 Suhu meningkat ${d.temp}°C di ${name} — pantau peralatan luar ruang`, 'warn');
+        else if (d.temp <= 33 && prev.temp > 33)
+          addLog(`🌡 Suhu kembali normal ${d.temp}°C di ${name}`, 'ok');
+
+        // ── Kelembaban ────────────────────────────────────────
+        if (d.humid > 90 && prev.humid <= 90)
+          addLog(`💧 Kelembaban sangat tinggi ${d.humid}% di ${name} — risiko korosi peralatan`, 'alert');
+        else if (d.humid > 85 && prev.humid <= 85)
+          addLog(`💧 Kelembaban melebihi ambang 85% (${d.humid}%) di ${name}`, 'warn');
+        else if (d.humid <= 85 && prev.humid > 85)
+          addLog(`💧 Kelembaban kembali normal ${d.humid}% di ${name}`, 'ok');
+
+        // ── Angin ─────────────────────────────────────────────
+        if (d.wind > 40 && prev.wind <= 40)
+          addLog(`💨 Angin sangat kencang ${d.wind} km/j di ${name} — waspada jalur udara`, 'alert');
+        else if (d.wind > 20 && prev.wind <= 20)
+          addLog(`💨 Kecepatan angin meningkat ${d.wind} km/j di ${name}`, 'warn');
+        else if (d.wind <= 20 && prev.wind > 20)
+          addLog(`💨 Kecepatan angin kembali normal ${d.wind} km/j di ${name}`, 'ok');
+
+        // ── Curah Hujan ───────────────────────────────────────
+        if (d.rain > 50 && prev.rain <= 50)
+          addLog(`🌧 Hujan sangat lebat ${d.rain} mm/24j di ${name} — waspada banjir`, 'alert');
+        else if (d.rain > 20 && prev.rain <= 20)
+          addLog(`🌧 Curah hujan lebat ${d.rain} mm/24j di ${name}`, 'warn');
+        else if (d.rain > 5 && prev.rain <= 5)
+          addLog(`🌧 Mulai hujan sedang ${d.rain} mm/24j di ${name}`, 'info');
+        else if (d.rain <= 5 && prev.rain > 20)
+          addLog(`🌧 Intensitas hujan mereda di ${name} (${d.rain} mm/24j)`, 'ok');
+
+        // ── Petir ─────────────────────────────────────────────
+        if (d.lightning > 10 && prev.lightning <= 10)
+          addLog(`⚡ Badai petir aktif — ${d.lightning} sambaran terdeteksi radius 150km ${name}`, 'alert');
+        else if (d.lightning > 5 && prev.lightning <= 5)
+          addLog(`⚡ Aktivitas petir meningkat ${d.lightning} kejadian di sekitar ${name}`, 'warn');
+        else if (d.lightning === 0 && prev.lightning > 5)
+          addLog(`⚡ Aktivitas petir mereda di sekitar ${name}`, 'ok');
+
+        // ── Risiko Petir naik/turun kelas ─────────────────────
+        const rPetirLevel  = d.risks.petir  >= 70 ? 2 : d.risks.petir  >= 40 ? 1 : 0;
+        const prPetirLevel = prev.riskPetir >= 70 ? 2 : prev.riskPetir >= 40 ? 1 : 0;
+        if (rPetirLevel > prPetirLevel) {
+          const lvl = rPetirLevel === 2 ? 'Tinggi' : 'Sedang';
+          addLog(`⚡ Indeks risiko petir naik ke ${lvl} (${d.risks.petir}%) di ${name}`, rPetirLevel === 2 ? 'alert' : 'warn');
+        } else if (rPetirLevel < prPetirLevel) {
+          addLog(`⚡ Indeks risiko petir turun ke Rendah (${d.risks.petir}%) di ${name}`, 'ok');
+        }
+
+        // ── Risiko Banjir naik/turun kelas ───────────────────
+        const rBanjirLevel  = d.risks.banjir  >= 70 ? 2 : d.risks.banjir  >= 40 ? 1 : 0;
+        const prBanjirLevel = prev.riskBanjir >= 70 ? 2 : prev.riskBanjir >= 40 ? 1 : 0;
+        if (rBanjirLevel > prBanjirLevel) {
+          const lvl = rBanjirLevel === 2 ? 'Tinggi' : 'Sedang';
+          addLog(`🌊 Indeks risiko banjir naik ke ${lvl} (${d.risks.banjir}%) di ${name}`, rBanjirLevel === 2 ? 'alert' : 'warn');
+        } else if (rBanjirLevel < prBanjirLevel) {
+          addLog(`🌊 Indeks risiko banjir turun ke Rendah (${d.risks.banjir}%) di ${name}`, 'ok');
+        }
+
+        // Update snapshot
+        prevState[key] = {
+          temp: d.temp, humid: d.humid, wind: d.wind,
+          rain: d.rain, lightning: d.lightning,
+          riskPetir: d.risks.petir, riskBanjir: d.risks.banjir,
+          riskAngin: d.risks.angin,
+        };
+        anyChange = true;
+      }
+
+      // Log info: data berhasil diperbarui dari API (setiap 10 menit)
+      return anyChange;
+    }
+
+    // -------------------------------------------------------
+    // STATE
+    // -------------------------------------------------------
+    let currentRegion = 'pontianak';
+    let tempChartInst = null;
+
+    // -------------------------------------------------------
+    // CLOCK
+    // -------------------------------------------------------
+    function updateClock() {
+      document.getElementById('clock').textContent =
+        new Date().toLocaleTimeString('id-ID');
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // -------------------------------------------------------
+    // TAB SWITCHING
+    // -------------------------------------------------------
+    document.getElementById('tabs').addEventListener('click', function (e) {
+      const tab = e.target.closest('.tab');
+      if (!tab) return;
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      currentRegion = tab.dataset.region;
+      render();
+    });
+
+    // -------------------------------------------------------
+    // RENDER FUNCTIONS
+    // -------------------------------------------------------
+
+    /* --- Metrics --- */
+    function renderMetrics(d) {
+      const ltngCls   = d.lightning > 5  ? 'trend-up' : d.lightning > 0 ? 'trend-stable' : 'trend-down';
+      const ltngTrend = d.lightning > 10 ? '🚨 Badai Aktif'
+                      : d.lightning > 5  ? '⚠ Waspada'
+                      : d.lightning > 0  ? '→ Ada Aktivitas'
+                      : '✔ Aman';
+      const ltngBorder = d.lightning > 10 ? '#ef4444'
+                       : d.lightning > 5  ? '#f59e0b'
+                       : d.lightning > 0  ? '#3b82f6'
+                       : '';
+
+      const items = [
+        { label: 'Suhu',        value: d.temp.toFixed(1), unit: '°C',       trend: d.temp > 33 ? '▲ Tinggi' : '→ Normal',   cls: d.temp > 33 ? 'trend-up' : 'trend-stable',  border: d.temp > 33 ? '#ef4444' : '' },
+        { label: 'Kelembaban',  value: d.humid,            unit: '%',        trend: d.humid > 85 ? '▲ Lembab' : '→ Normal',  cls: d.humid > 85 ? 'trend-up' : 'trend-stable', border: d.humid > 85 ? '#f59e0b' : '' },
+        { label: 'Angin',       value: d.wind,             unit: 'km/j',     trend: d.wind > 20 ? '▲ Kencang' : '→ Lemah',   cls: d.wind > 20 ? 'trend-up' : 'trend-stable',  border: d.wind > 20 ? '#f59e0b' : '' },
+        { label: 'Curah Hujan', value: d.rain.toFixed(1),  unit: 'mm',       trend: d.rain > 20 ? '▲ Lebat' : d.rain > 5 ? '→ Sedang' : '▼ Ringan', cls: d.rain > 20 ? 'trend-up' : d.rain > 5 ? 'trend-stable' : 'trend-down', border: d.rain > 20 ? '#3b82f6' : '' },
+        { label: '⚡ Petir',    value: d.lightning,        unit: 'kejadian', trend: ltngTrend, cls: ltngCls, border: ltngBorder, extra: `<span id="ltng-ws-status" style="font-size:9px; margin-left:4px">● Connecting</span>` },
+      ];
+
+      document.getElementById('metrics-grid').innerHTML = items.map(m => `
+        <div class="metric-card" style="${m.border ? `border-left: 3px solid ${m.border};` : ''}">
+          <div class="metric-label">${m.label}${m.extra || ''}</div>
+          <div>
+            <span class="metric-value">${m.value}</span>
+            <span class="metric-unit">${m.unit}</span>
+          </div>
+          <div class="metric-trend ${m.cls}">${m.trend}</div>
+        </div>
+      `).join('');
+      // Restore WS status indicator setelah re-render
+      const wsEl = document.getElementById('ltng-ws-status');
+      if (wsEl && window._ltngWsStatus) {
+        wsEl.textContent = window._ltngWsStatus.text;
+        wsEl.style.color = window._ltngWsStatus.color;
+      }
+    }
+
+    /* --- Alert --- */
+    // -------------------------------------------------------
+    // KALKULASI INDEKS RISIKO DARI DATA REAL OPEN-METEO
+    // petir  : cape + lightning_potential + hujan + angin
+    // banjir : precipitation + soil_moisture + hujan akumulasi
+    // angin  : wind_gusts + wind_speed
+    // UV     : uv_index langsung dari API (skala 0–11+)
+    // -------------------------------------------------------
+    function calcRisks(d) {
+      // --- PETIR ---
+      // cape: 0-500 J/kg = rendah, 500-2000 = sedang, >2000 = tinggi (max normalise 3000)
+      const capeScore  = Math.min(100, ((d.raw.cape || 0) / 3000) * 100);
+      // lightning_potential: 0-1 (estimasi dari deskripsi cuaca BMKG)
+      const ltngScore  = Math.min(100, (d.raw.lightning_potential || 0) * 100);
+      const rainScore  = Math.min(100, (d.rain / 30) * 100);
+      const windScore  = Math.min(100, (d.wind / 60) * 100);
+      const petir = Math.round(capeScore * 0.35 + ltngScore * 0.35 + rainScore * 0.20 + windScore * 0.10);
+
+      // --- BANJIR ---
+      // soil_moisture 0-0.5 m3/m3 (jenuh ~0.4+), precipitation akumulasi
+      const soilScore  = Math.min(100, ((d.raw.soil_moisture || 0) / 0.4) * 100);
+      const precipScore = Math.min(100, (d.rain / 25) * 100);
+      const humidScore = Math.min(100, ((d.humid - 50) / 50) * 100);
+      const banjir = Math.round(precipScore * 0.50 + soilScore * 0.35 + humidScore * 0.15);
+
+      // --- ANGIN ---
+      // wind_gusts lebih representatif untuk risiko operasional
+      const gustScore  = Math.min(100, ((d.raw.wind_gusts || d.wind) / 80) * 100);
+      const wspeedScore = Math.min(100, (d.wind / 60) * 100);
+      const angin = Math.round(gustScore * 0.65 + wspeedScore * 0.35);
+
+      // --- UV ---
+      // WHO scale: 0-2 Low, 3-5 Moderate, 6-7 High, 8-10 Very High, 11+ Extreme
+      const uvRaw = d.raw.uv_index || 0;
+      const uv = Math.min(100, Math.round((uvRaw / 11) * 100));
+
+      // --- KOROSI (kelembaban tinggi = risiko korosi peralatan) ---
+      // Kelembaban >85% mulai risiko, >95% kritis
+      const korosiScore = Math.min(100, Math.max(0, ((d.humid - 70) / 30) * 100));
+      const korosi = Math.round(korosiScore * 0.70 + rainScore * 0.30);
+
+      // --- BEBAN TERMAL (suhu + kelembaban = heat index operasional) ---
+      // Heat index Rothfusz: relevan untuk keselamatan petugas lapangan
+      // Suhu >33°C + humid >80% = mulai berbahaya
+      const tempScore  = Math.min(100, Math.max(0, ((d.temp - 28) / 12) * 100));
+      const heatIndex  = Math.round(tempScore * 0.55 + korosiScore * 0.45);
+
+      return {
+        petir:  Math.max(0, Math.min(100, petir)),
+        banjir: Math.max(0, Math.min(100, banjir)),
+        angin:  Math.max(0, Math.min(100, angin)),
+        uv:     Math.max(0, Math.min(100, uv)),
+        korosi: Math.max(0, Math.min(100, korosi)),
+        bebanTermal: Math.max(0, Math.min(100, heatIndex)),
+        uvRaw:  parseFloat(uvRaw.toFixed(1)),
+      };
+    }
+
+    function calcAlerts(d) {
+      const alerts = [];
+      const r = d.risks;
+      // Petir kritis
+      if (r.petir >= 70)
+        alerts.push({ type: 'alert', msg: '🚨 PERINGATAN: Risiko petir tinggi (' + r.petir + '%) — waspada jalur transmisi' });
+      else if (r.petir >= 40)
+        alerts.push({ type: 'warn', msg: '⚠ Risiko petir sedang (' + r.petir + '%) — pantau kondisi jalur' });
+      // Banjir
+      if (r.banjir >= 70)
+        alerts.push({ type: 'alert', msg: '🚨 PERINGATAN: Risiko banjir tinggi (' + r.banjir + '%) — pantau gardu di dataran rendah' });
+      else if (r.banjir >= 40)
+        alerts.push({ type: 'warn', msg: '⚠ Risiko banjir sedang (' + r.banjir + '%) — siagakan tim lapangan' });
+      // Angin kencang
+      if (r.angin >= 70)
+        alerts.push({ type: 'alert', msg: '🚨 Angin kencang (' + d.wind + ' km/j) — risiko gangguan jalur udara' });
+      else if (r.angin >= 40)
+        alerts.push({ type: 'warn', msg: '⚠ Kecepatan angin meningkat (' + d.wind + ' km/j) — pantau jalur transmisi' });
+      // UV tinggi
+      if (r.uv >= 70)
+        alerts.push({ type: 'warn', msg: '☀️ Paparan UV sangat tinggi (UV ' + (r.uvRaw||'') + ') — lindungi petugas lapangan' });
+      // Korosi
+      if (r.korosi >= 70)
+        alerts.push({ type: 'alert', msg: '🔧 Kelembaban sangat tinggi — risiko korosi peralatan gardu' });
+      else if (r.korosi >= 40)
+        alerts.push({ type: 'warn', msg: '🔧 Kelembaban tinggi — pantau kondisi peralatan outdoor' });
+      // Beban Termal
+      if (r.bebanTermal >= 70)
+        alerts.push({ type: 'alert', msg: '🌡️ Beban termal tinggi — batasi aktivitas petugas lapangan' });
+      else if (r.bebanTermal >= 40)
+        alerts.push({ type: 'warn', msg: '🌡️ Suhu & kelembaban tinggi — pastikan petugas terhidrasi' });
+      // Semua aman
+      if (alerts.length === 0)
+        alerts.push({ type: 'ok', msg: '✔ Kondisi cuaca normal — semua unit beroperasi optimal' });
+      return alerts;
+    }
+
+    function renderAlert(d) {
+      const zone = document.getElementById('alert-zone');
+      const alerts = calcAlerts(d);
+      zone.innerHTML = alerts.map(a => `
+        <div class="alert-banner alert-${a.type}">${a.msg}</div>
+      `).join('');
+    }
+
+    /* --- Stations --- */
+    function renderStations(d) {
+      const badgeLabel = { normal: 'Normal', warn: 'Waspada', alert: 'Kritis' };
+      document.getElementById('station-list').innerHTML = d.stations.map(s => `
+        <div class="station-row">
+          <div class="station-icon icon-${s.status}">${s.icon}</div>
+          <div class="station-info">
+            <div class="station-name">${s.name}</div>
+            <div class="station-loc">${s.loc}</div>
+          </div>
+          <div class="station-right">
+            <div class="station-temp">${s.temp.toFixed(1)}°C</div>
+            <span class="badge badge-${s.status}">${badgeLabel[s.status]}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    /* --- Forecast --- */
+    function renderForecast(d) {
+      document.getElementById('forecast-row').innerHTML = d.forecast.map(f => `
+        <div class="fc-item${f.day === 'Hari ini' ? ' today' : ''}">
+          <div class="fc-day">${f.day}</div>
+          <div class="fc-date">${f.date || ''}</div>
+          <div class="fc-icon">${f.icon}</div>
+          <div class="fc-label">${f.label || ''}</div>
+          <div class="fc-hi">${f.hi}°C</div>
+          <div class="fc-lo">↓ ${f.lo}°C</div>
+          <div class="fc-rain">💧 ${f.rain}%</div>
+          <div class="fc-precip">🌧 ${f.precip ?? '—'} mm</div>
+        </div>
+      `).join('');
+    }
+
+    function renderHourlyForecast(d) {
+      const el = document.getElementById('hourly-forecast');
+      if (!el) return;
+
+      const slots = d.hourlyForecast || [];
+      if (!slots.length) {
+        el.innerHTML = '<div class="hourly-empty">⏳ Memuat data prakiraan per jam...</div>';
+        return;
+      }
+
+      // Tampilkan 48 jam ke depan mulai dari 1 jam lalu
+      const nowMs = Date.now();
+      const filtered = slots.filter(s => {
+        const t = new Date(s.local_datetime).getTime();
+        return t >= nowMs - 3600000 && t <= nowMs + 48 * 3600000;
+      });
+
+      if (!filtered.length) {
+        el.innerHTML = '<div class="hourly-empty">Tidak ada data tersedia</div>';
+        return;
+      }
+
+      // Cari index slot terdekat sekarang
+      let nowIdx = 0, minDiff = Infinity;
+      filtered.forEach((s, i) => {
+        const diff = Math.abs(new Date(s.local_datetime).getTime() - nowMs);
+        if (diff < minDiff) { minDiff = diff; nowIdx = i; }
+      });
+
+      const getIcon = desc => {
+        const d = (desc || '').toLowerCase();
+        if (d.includes('petir') || d.includes('badai')) return '⛈';
+        if (d.includes('lebat'))  return '🌧';
+        if (d.includes('sedang') && d.includes('hujan')) return '🌦';
+        if (d.includes('ringan') || d.includes('gerimis')) return '🌦';
+        if (d.includes('hujan')) return '🌧';
+        if (d.includes('berawan tebal')) return '☁️';
+        if (d.includes('berawan') || d.includes('cerah berawan')) return '⛅';
+        if (d.includes('cerah')) return '☀️';
+        if (d.includes('kabut') || d.includes('kabur') || d.includes('asap')) return '🌫';
+        return '🌡';
+      };
+
+      const rows = filtered.map((s, i) => {
+        const isNow  = i === nowIdx;
+        const dt     = new Date(s.local_datetime);
+        const dateStr = dt.toLocaleDateString('id-ID', { day:'numeric', month:'short' });
+        const time   = dateStr + ' ' + (s.local_datetime || '').slice(11, 16);
+        const icon   = getIcon(s.weather_desc);
+        const temp   = s.t  != null ? s.t + '°C'           : '—';
+        const humid  = s.hu != null ? s.hu + '%'            : '—';
+        const wind   = s.ws != null ? Math.round(s.ws) + ' km/j' : '—';
+        const rain   = s.tp != null ? parseFloat(s.tp).toFixed(1) + ' mm' : '—';
+        const desc   = s.weather_desc || '—';
+        return `<tr class="${isNow ? 'now-row' : ''}" id="${isNow ? 'hourly-now-row' : ''}">
+          <td>${time}</td>
+          <td>${icon}</td>
+          <td style="color:var(--text-secondary); font-size:11px">${desc}</td>
+          <td style="color:#ef4444; font-weight:600">${temp}</td>
+          <td style="color:#8b5cf6">${humid}</td>
+          <td style="color:var(--text-secondary)">${wind}</td>
+          <td style="color:#3b82f6">${rain}</td>
+        </tr>`;
+      }).join('');
+
+      el.innerHTML = `
+        <table class="hourly-table">
+          <thead><tr>
+            <th>Jam</th><th></th><th>Kondisi</th>
+            <th>Suhu</th><th>Lembab</th><th>Angin</th><th>Hujan</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+
+      // Auto-scroll ke baris sekarang
+      requestAnimationFrame(() => {
+        const nowRow = document.getElementById('hourly-now-row');
+        const wrap   = nowRow?.closest('.hourly-wrap');
+        if (nowRow && wrap) {
+          wrap.scrollTop = nowRow.offsetTop - wrap.clientHeight / 2 + nowRow.clientHeight / 2;
+        }
+      });
+    }
+
+    /* --- Risks --- */
+    function renderRisks(d) {
+      const riskItems = [
+        { label: 'Risiko Petir',      val: d.risks.petir,       color: '#f59e0b', icon: '⚡' },
+        { label: 'Risiko Banjir',     val: d.risks.banjir,      color: '#3b82f6', icon: '🌊' },
+        { label: 'Risiko Angin',      val: d.risks.angin,       color: '#8b5cf6', icon: '💨' },
+        { label: 'Paparan UV',        val: d.risks.uv,          color: '#f97316', icon: '☀️' },
+        { label: 'Risiko Korosi',     val: d.risks.korosi,      color: '#06b6d4', icon: '🔧' },
+        { label: 'Beban Termal',      val: d.risks.bebanTermal, color: '#ef4444', icon: '🌡️' },
+      ];
+
+      document.getElementById('risk-grid').innerHTML = riskItems.map(r => {
+        const level = r.val >= 70 ? 'Tinggi' : r.val >= 40 ? 'Sedang' : 'Rendah';
+        const color = r.val >= 70 ? '#ef4444' : r.val >= 40 ? '#f59e0b' : '#22c55e';
+        // untuk UV, tampilkan nilai indeks asli (0-11+) di subtitle
+        const uvRaw = (r.label === 'Paparan UV' && d.risks.uvRaw !== undefined)
+          ? ` <span style="font-size:10px;font-weight:400;color:#94a3b8">(UV ${d.risks.uvRaw})</span>` : '';
+        return `
+          <div class="risk-item">
+            <div class="risk-label">${r.icon} ${r.label}</div>
+            <div class="risk-bar-wrap">
+              <div class="risk-bar" style="width:${r.val}%; background:${r.color}"></div>
+            </div>
+            <div class="risk-val" style="color:${color}">${r.val}% — ${level}${uvRaw}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    /* --- Event Log --- */
+    function renderLog() {
+      const typeMap = {
+        alert: { bg: '#fee2e2', color: '#991b1b', label: 'Kritis' },
+        warn:  { bg: '#fef9c3', color: '#854d0e', label: 'Waspada' },
+        ok:    { bg: '#dcfce7', color: '#166534', label: 'Normal' },
+        info:  { bg: '#e0f2fe', color: '#0369a1', label: 'Info' },
+      };
+
+      const el = document.getElementById('event-log');
+      if (!eventLog.length) {
+        el.innerHTML = '<div style="padding:12px 0; color:var(--text-muted); font-size:13px; text-align:center">⏳ Menunggu data dari BMKG...</div>';
+        return;
+      }
+      el.innerHTML = eventLog.map(e => {
+        const t = typeMap[e.type] || typeMap.info;
+        return `
+          <div class="log-row">
+            <span class="log-time">${e.time}</span>
+            <span class="log-event">${e.event}</span>
+            <span class="log-badge" style="background:${t.bg}; color:${t.color}">${t.label}</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    /* --- Temperature Chart --- */
+    function renderChart(d) {
+      const labels = ['60m lalu', '50m lalu', '40m lalu', '30m lalu', '20m lalu', '10m lalu', 'Kini'];
+      const data   = [...d.tempHistory, d.temp];
+
+      const ctx = document.getElementById('tempChart').getContext('2d');
+      if (tempChartInst) tempChartInst.destroy();
+
+      tempChartInst = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Suhu (°C)',
+            data,
+            borderColor: '#003087',
+            backgroundColor: 'rgba(0, 48, 135, 0.07)',
+            borderWidth: 2,
+            pointRadius: 4,
+            pointBackgroundColor: '#003087',
+            fill: true,
+            tension: 0.4,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: ctx => ` ${ctx.parsed.y.toFixed(1)}°C`,
+              },
+            },
+          },
+          scales: {
+            y: {
+              min: Math.min(...data) - 1,
+              max: Math.max(...data) + 1,
+              ticks: {
+                font: { size: 11 },
+                callback: v => v.toFixed(1) + '°',
+              },
+              grid: { color: '#f1f5f9' },
+            },
+            x: {
+              ticks: { font: { size: 10 } },
+              grid: { color: '#f1f5f9' },
+            },
+          },
+        },
+      });
+    }
+
+    // -------------------------------------------------------
+    // MAIN RENDER
+    // -------------------------------------------------------
+    function render() {
+      const d = regions[currentRegion];
+      renderMetrics(d);
+      renderAlert(d);
+      renderStations(d);
+      renderForecast(d);
+      renderHourlyForecast(d);
+      renderRisks(d);
+      renderLog();
+      renderChart(d);
+    }
+
+    // -------------------------------------------------------
+    // BMKG API — koordinat & kode wilayah per kota
+    // Prakiraan: api.bmkg.go.id (via proxy, CORS tidak diizinkan langsung)
+    // Fallback cuaca: Open-Meteo (CORS friendly, langsung dari browser)
+    // -------------------------------------------------------
+    const regionCoords = {
+      pontianak:  { lat: -0.0263, lng: 109.3425 },
+      singkawang: { lat:  0.9069, lng: 108.9859 },
+      ketapang:   { lat: -1.8595, lng: 110.0169 },
+      sanggau:    { lat:  0.1284, lng: 110.5993 },
+      mempawah:   { lat:  0.3641, lng: 108.9551 },
+    };
+
+    // Kode adm4 BMKG (dicoba via proxy)
+    const bmkgAdm4 = {
+      pontianak:  '61.71.050.2003',
+      singkawang: '61.72.020.2001',
+      ketapang:   '61.05.040.2001',
+      sanggau:    '61.04.010.2001',
+      mempawah:   '61.11.030.2001',
+    };
+
+    // CORS proxy list (dicoba berurutan sampai berhasil)
+    const CORS_PROXIES = [
+      url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+      url => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
+      url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+    ];
+
+    async function fetchWithProxy(url, timeoutMs = 8000) {
+      for (const makeProxy of CORS_PROXIES) {
+        try {
+          const res = await fetch(makeProxy(url), { signal: AbortSignal.timeout(timeoutMs) });
+          if (res.ok) return res;
+        } catch(e) { /* coba proxy berikutnya */ }
+      }
+      return null;
+    }
+
+    // Konversi weather_desc BMKG → emoji icon
+    function bmkgToIcon(weatherDesc) {
+      const d = (weatherDesc || '').toLowerCase();
+      if (d.includes('badai') || d.includes('petir') || d.includes('thunderstorm')) return { icon: '⛈', label: weatherDesc };
+      if (d.includes('hujan lebat') || d.includes('heavy'))   return { icon: '🌧', label: weatherDesc };
+      if (d.includes('hujan sedang'))  return { icon: '🌧', label: weatherDesc };
+      if (d.includes('hujan ringan') || d.includes('gerimis')) return { icon: '🌦', label: weatherDesc };
+      if (d.includes('hujan'))         return { icon: '🌧', label: weatherDesc };
+      if (d.includes('berawan tebal')) return { icon: '☁️', label: weatherDesc };
+      if (d.includes('berawan'))       return { icon: '⛅', label: weatherDesc };
+      if (d.includes('cerah berawan')) return { icon: '⛅', label: weatherDesc };
+      if (d.includes('cerah'))         return { icon: '☀️', label: weatherDesc };
+      if (d.includes('kabut') || d.includes('asap') || d.includes('kabur')) return { icon: '🌫', label: weatherDesc };
+      return { icon: '🌡', label: weatherDesc };
+    }
+
+
+    // -------------------------------------------------------
+    // FETCH DATA BMKG — current + forecast 3 hari
+    // Dijalankan tiap 30 menit (BMKG update 2x/hari)
+    // -------------------------------------------------------
+    // -------------------------------------------------------
+    // FETCH DATA CUACA — Open-Meteo (CORS-friendly, backbone utama)
+    // Menggunakan Open-Meteo karena BMKG API tidak support CORS dari browser
+    // Data identik akurasinya untuk Kalbar (model ERA5 + GFS)
+    // -------------------------------------------------------
+    function wmoToIcon(code) {
+      if (code === 0)        return { icon: '☀️', label: 'Cerah' };
+      if (code <= 2)         return { icon: '⛅', label: 'Cerah Berawan' };
+      if (code === 3)        return { icon: '☁️', label: 'Berawan' };
+      if (code <= 49)        return { icon: '🌫', label: 'Berkabut' };
+      if (code <= 55)        return { icon: '🌦', label: 'Gerimis' };
+      if (code <= 65)        return { icon: '🌧', label: 'Hujan' };
+      if (code <= 77)        return { icon: '🌨', label: 'Hujan Es' };
+      if (code <= 82)        return { icon: '🌧', label: 'Hujan Lebat' };
+      if (code <= 99)        return { icon: '⛈', label: 'Hujan Petir' };
+      return { icon: '🌡', label: 'Tidak Diketahui' };
+    }
+
+    async function fetchBMKGWeatherAll() {
+      const keys   = Object.keys(regionCoords);
+      const coords = Object.values(regionCoords);
+
+      const fetches = keys.map((key, i) => {
+        const { lat, lng } = coords[i];
+        const url = `https://api.open-meteo.com/v1/forecast?` +
+          `latitude=${lat}&longitude=${lng}` +
+          `&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,` +
+          `wind_speed_10m,wind_gusts_10m,cape,lightning_potential,uv_index` +
+          `&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,precipitation,` +
+          `weather_code,visibility,soil_moisture_0_to_1cm` +
+          `&timezone=Asia%2FMakassar&forecast_days=5&past_days=0`;
+        return fetch(url).then(r => r.json()).then(data => ({ key, data }));
+      });
+
+      try {
+        const results = await Promise.all(fetches);
+
+        results.forEach(({ key, data }) => {
+          const d  = regions[key];
+          const c  = data.current;
+          if (!c) return;
+
+          const newTemp  = parseFloat(c.temperature_2m.toFixed(1));
+          const newHumid = Math.round(c.relative_humidity_2m);
+          const newWind  = Math.round(c.wind_speed_10m);
+          const wCode    = c.weather_code || 0;
+
+          // Curah hujan 24 jam
+          let rain24h = 0;
+          if (data.hourly?.precipitation && data.hourly?.time) {
+            const now = new Date(), cutoff = new Date(now - 86400000);
+            data.hourly.time.forEach((t, i) => {
+              if (new Date(t) >= cutoff && new Date(t) <= now)
+                rain24h += (data.hourly.precipitation[i] || 0);
+            });
+          }
+          const newRain = parseFloat(rain24h.toFixed(1));
+
+          // raw untuk calcRisks
+          const soilArr = data.hourly?.soil_moisture_0_to_1cm;
+          d.raw = {
+            cape:                c.cape                || 0,
+            lightning_potential: c.lightning_potential || 0,
+            wind_gusts:          c.wind_gusts_10m      || newWind,
+            uv_index:            c.uv_index            || 0,
+            soil_moisture:       soilArr ? (soilArr[0] || 0) : 0,
+            rain24h:             newRain,
+          };
+
+          d.tempHistory.shift();
+          d.tempHistory.push(newTemp);
+          d.temp  = newTemp;
+          d.humid = newHumid;
+          d.wind  = newWind;
+          d.rain  = newRain;
+
+          // ── Prakiraan 5 hari — dibangun dari hourly (sumber sama dengan per jam) ──
+          const dayNames     = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
+          const dayFullNames = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+          if (data.hourly?.time) {
+            const h = data.hourly;
+            const todayStr = new Date().toISOString().slice(0, 10);
+
+            // Grup slot hourly per tanggal (timezone lokal)
+            const byDay = {};
+            h.time.forEach((t, i) => {
+              const dateStr = t.slice(0, 10); // "YYYY-MM-DD"
+              if (dateStr < todayStr) return; // skip kemarin
+              if (!byDay[dateStr]) byDay[dateStr] = [];
+              byDay[dateStr].push({
+                temp:    h.temperature_2m?.[i]        ?? null,
+                humid:   h.relative_humidity_2m?.[i]  ?? null,
+                wind:    h.wind_speed_10m?.[i]         ?? null,
+                rain:    h.precipitation?.[i]          ?? 0,
+                wcode:   h.weather_code?.[i]           ?? 0,
+              });
+            });
+
+            const sortedDays = Object.keys(byDay).sort().slice(0, 5);
+            d.forecast = sortedDays.map(dateStr => {
+              const slots  = byDay[dateStr];
+              const temps  = slots.map(s => s.temp).filter(v => v != null);
+              const rains  = slots.map(s => s.rain);
+              const wcodes = slots.map(s => s.wcode);
+
+              // Kode cuaca terburuk (nilai WMO tertinggi = paling buruk)
+              const worstCode  = Math.max(...wcodes);
+              const w          = wmoToIcon(worstCode);
+
+              // Probabilitas hujan = fraksi jam yang ada hujan (tp > 0.1)
+              const rainHours = slots.filter(s => s.rain > 0.1).length;
+              const rainPct   = Math.round((rainHours / slots.length) * 100);
+              const totalRain = parseFloat(rains.reduce((a, b) => a + b, 0).toFixed(1));
+
+              const dateObj = new Date(dateStr + 'T12:00:00');
+              const isToday = dateStr === todayStr;
+
+              return {
+                day:    isToday ? 'Hari ini' : dayNames[dateObj.getDay()],
+                dayFull: isToday ? 'Hari ini' : dayFullNames[dateObj.getDay()],
+                date:   dateObj.toLocaleDateString('id-ID', { day:'numeric', month:'short' }),
+                icon:   w.icon,
+                label:  w.label,
+                hi:     temps.length ? Math.round(Math.max(...temps)) : Math.round(d.temp + 2),
+                lo:     temps.length ? Math.round(Math.min(...temps)) : Math.round(d.temp - 3),
+                rain:   rainPct,
+                precip: totalRain,
+              };
+            });
+          }
+
+          d.risks = calcRisks(d);
+
+          // ── Sinkronkan suhu & status per gardu dengan data real-time ──
+          // Offset deterministik sama dengan yang dipakai peta (seed dari nama)
+          if (d.stations) {
+            d.stations.forEach((st, i) => {
+              // Seed hash dari nama gardu → offset -1..1
+              let h = 0;
+              for (let c = 0; c < st.name.length; c++) h = Math.imul(31, h) + st.name.charCodeAt(c) | 0;
+              const r = ((h >>> 0) % 1000) / 500 - 1;
+              // Offset suhu kecil (max ±1.5°C) — konsisten dengan peta
+              const dTemp = parseFloat((r * 1.5).toFixed(1));
+              st.temp = parseFloat((d.temp + dTemp).toFixed(1));
+
+              // Status berdasarkan kondisi cuaca wilayah + indeks risiko
+              const risk = Math.max(d.risks.petir, d.risks.angin);
+              if (risk >= 70 || d.lightning > 5)      st.status = 'alert';
+              else if (risk >= 40 || d.rain > 20 || d.wind > 20) st.status = 'warn';
+              else                                     st.status = 'normal';
+            });
+          }
+
+          // ── Prakiraan per jam dari Open-Meteo → format hourlyForecast ──
+          if (data.hourly?.time) {
+            const h = data.hourly;
+            const wmoDesc = code => {
+              if (code === 0)      return 'Cerah';
+              if (code <= 2)       return 'Cerah Berawan';
+              if (code === 3)      return 'Berawan';
+              if (code <= 49)      return 'Berkabut';
+              if (code <= 55)      return 'Gerimis';
+              if (code <= 65)      return 'Hujan Ringan';
+              if (code <= 77)      return 'Hujan Es';
+              if (code <= 82)      return 'Hujan Lebat';
+              if (code <= 99)      return 'Hujan Petir';
+              return 'Tidak Diketahui';
+            };
+            const visText = v => {
+              if (!v) return '—';
+              if (v >= 10000) return '> 10 km';
+              return `< ${Math.round(v/1000) + 1} km`;
+            };
+            d.hourlyForecast = h.time.map((t, i) => ({
+              local_datetime: t,          // format: "2026-06-11T07:00"
+              t:    h.temperature_2m?.[i] ?? null,
+              hu:   h.relative_humidity_2m?.[i] ?? null,
+              ws:   h.wind_speed_10m?.[i] ?? null,
+              tp:   h.precipitation?.[i] ?? 0,
+              weather_desc: wmoDesc(h.weather_code?.[i] || 0),
+              vs_text: visText(h.visibility?.[i]),
+            }));
+          }
+        });
+
+        checkAndLog();
+        addLog('🌐 Data cuaca diperbarui dari Open-Meteo', 'info');
+        render();
+        if (typeof refreshMap === 'function') refreshMap();
+
+      } catch (err) {
+        console.error('Open-Meteo fetch error:', err);
+        fallbackSimulate();
+      }
+    }
+    // -------------------------------------------------------
+    // FETCH LOG KEJADIAN — dua sumber:
+    // 1. BMKG Nowcast XML (peringatan dini resmi, via allorigins proxy)
+    // 2. Open-Meteo hourly (kondisi cuaca per jam hari ini)
+    // -------------------------------------------------------
+    async function fetchHistoricalLog() {
+      if (historyLoaded) return;
+
+      const t = logTime();
+
+      // ── BAGIAN 1: BMKG Nowcast Peringatan Dini Kalbar ────────
+      try {
+        const NOWCAST_URL = 'https://www.bmkg.go.id/alerts/nowcast/id';
+        const proxyUrl    = `https://api.allorigins.win/raw?url=${encodeURIComponent(NOWCAST_URL)}`;
+        const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(8000) });
+
+        if (res.ok) {
+          const xml = await res.text();
+          const doc = new DOMParser().parseFromString(xml, 'text/xml');
+
+          // Cari item RSS Kalimantan Barat
+          const items = Array.from(doc.querySelectorAll('item'));
+          const kalbarItems = items.filter(item => {
+            const title = (item.querySelector('title')?.textContent || '').toLowerCase();
+            return title.includes('kalimantan barat') || title.includes('kalbar');
+          });
+
+          if (kalbarItems.length === 0) {
+            addLogSorted('✅ Tidak ada peringatan dini BMKG aktif di Kalimantan Barat', 'ok', t);
+          } else {
+            // Ambil detail CAP dari setiap item
+            for (const item of kalbarItems) {
+              const capLink = item.querySelector('link')?.textContent?.trim()
+                           || item.querySelector('guid')?.textContent?.trim();
+              const pubDate = item.querySelector('pubDate')?.textContent || '';
+              const timeStr = pubDate
+                ? new Date(pubDate).toLocaleTimeString('id-ID', { hour:'2-digit', minute:'2-digit' })
+                : t;
+
+              if (!capLink) continue;
+
+              try {
+                const capRes = await fetch(
+                  `https://api.allorigins.win/raw?url=${encodeURIComponent(capLink)}`,
+                  { signal: AbortSignal.timeout(8000) }
+                );
+                if (!capRes.ok) continue;
+
+                const capXml = await capRes.text();
+                const capDoc = new DOMParser().parseFromString(capXml, 'text/xml');
+
+                // Kata kunci wilayah → region key
+                const regionKeywords = {
+                  pontianak:  ['pontianak', 'kubu raya'],
+                  singkawang: ['singkawang', 'sambas', 'bengkayang'],
+                  ketapang:   ['ketapang', 'kayong'],
+                  sanggau:    ['sanggau', 'sekadau', 'sintang', 'melawi'],
+                  mempawah:   ['mempawah', 'landak'],
+                };
+                const petirKw = ['petir', 'kilat', 'badai', 'thunderstorm'];
+
+                Array.from(capDoc.querySelectorAll('info')).forEach(info => {
+                  const event   = info.querySelector('event')?.textContent     || '';
+                  const desc    = info.querySelector('description')?.textContent || '';
+                  const effStr  = info.querySelector('effective')?.textContent  || '';
+                  const expStr  = info.querySelector('expires')?.textContent    || '';
+
+                  // Skip jika sudah expired
+                  if (expStr && new Date(expStr) < new Date()) return;
+
+                  const allText = (event + ' ' + desc).toLowerCase();
+                  const isPetir = petirKw.some(k => allText.includes(k));
+                  const isLebat = allText.includes('lebat');
+                  const isKencang = allText.includes('kencang');
+
+                  const logTime2 = effStr
+                    ? new Date(effStr).toLocaleTimeString('id-ID', { hour:'2-digit', minute:'2-digit' })
+                    : timeStr;
+
+                  // Cari wilayah terdampak
+                  Array.from(info.querySelectorAll('area')).forEach(area => {
+                    const areaDesc = (area.querySelector('areaDesc')?.textContent || '').toLowerCase();
+                    for (const [rKey, kws] of Object.entries(regionKeywords)) {
+                      if (kws.some(kw => areaDesc.includes(kw))) {
+                        const name = regionNames[rKey];
+                        if (isPetir)
+                          addLogSorted(`⚡ BMKG: ${event || 'Hujan Petir'} di ${name}`, 'alert', logTime2);
+                        else if (isLebat)
+                          addLogSorted(`🌧 BMKG: ${event || 'Hujan Lebat'} di ${name}`, 'warn', logTime2);
+                        else if (isKencang)
+                          addLogSorted(`💨 BMKG: ${event || 'Angin Kencang'} di ${name}`, 'warn', logTime2);
+                        else
+                          addLogSorted(`⚠ BMKG: ${event} di ${name}`, 'warn', logTime2);
+                      }
+                    }
+                  });
+                });
+              } catch(e) { /* skip CAP yang gagal */ }
+            }
+          }
+          addLogSorted('🌐 Peringatan dini BMKG berhasil dimuat', 'info', t);
+        }
+      } catch(e) {
+        console.warn('BMKG Nowcast error:', e.message);
+      }
+
+      // ── BAGIAN 2: Log kondisi cuaca hari ini dari Open-Meteo ─
+      // Dibuat dari checkAndLog() yang sudah diisi saat fetchBMKGWeatherAll
+      // Tambahkan snapshot kondisi saat ini untuk semua wilayah
+      const nowT = logTime();
+      const sorted = Object.entries(regions)
+        .map(([key, d]) => ({ key, name: regionNames[key], d }))
+        .sort((a, b) => {
+          const ra = Math.max(a.d.risks?.petir||0, a.d.risks?.banjir||0, a.d.risks?.angin||0);
+          const rb = Math.max(b.d.risks?.petir||0, b.d.risks?.banjir||0, b.d.risks?.angin||0);
+          return rb - ra;
+        });
+
+      sorted.forEach(({ name, d }) => {
+        if (d.temp > 36)
+          addLogSorted(`🌡 Suhu sangat tinggi ${d.temp}°C di ${name}`, 'alert', nowT);
+        else if (d.temp > 33)
+          addLogSorted(`🌡 Suhu tinggi ${d.temp}°C di ${name} — pantau peralatan luar`, 'warn', nowT);
+
+        if (d.humid > 90)
+          addLogSorted(`💧 Kelembaban sangat tinggi ${d.humid}% di ${name} — risiko korosi`, 'alert', nowT);
+        else if (d.humid > 85)
+          addLogSorted(`💧 Kelembaban tinggi ${d.humid}% di ${name}`, 'warn', nowT);
+
+        if (d.wind > 40)
+          addLogSorted(`💨 Angin kencang ${d.wind} km/j di ${name} — waspada jalur udara`, 'alert', nowT);
+        else if (d.wind > 20)
+          addLogSorted(`💨 Angin meningkat ${d.wind} km/j di ${name}`, 'warn', nowT);
+
+        if (d.rain > 20)
+          addLogSorted(`🌧 Hujan lebat ${d.rain.toFixed(1)} mm di ${name}`, 'alert', nowT);
+        else if (d.rain > 5)
+          addLogSorted(`🌧 Hujan sedang ${d.rain.toFixed(1)} mm di ${name}`, 'warn', nowT);
+
+        if (d.lightning > 5)
+          addLogSorted(`⚡ Aktivitas petir ${d.lightning} kejadian di sekitar ${name}`, 'warn', nowT);
+        else if (d.lightning > 0)
+          addLogSorted(`⚡ Petir ${d.lightning} kejadian terdeteksi di sekitar ${name}`, 'info', nowT);
+        else
+          addLogSorted(`✅ Kondisi normal di ${name} — tidak ada kejadian signifikan`, 'ok', nowT);
+      });
+
+      historyLoaded = true;
+      render();
+    }
+    // -------------------------------------------------------
+    // JADWAL FETCH
+    // BMKG       : setiap 30 menit (update 2x sehari)
+    // Blitzortung: setiap 2 menit  (petir real time)
+    // -------------------------------------------------------
+
+
+    // fetchBMKGWeatherAll dulu, lalu fetchHistoricalLog setelah data tersedia
+    fetchBMKGWeatherAll().then(() => fetchHistoricalLog());
+    setInterval(fetchBMKGWeatherAll, 10 * 60 * 1000);
+
+
+    // -------------------------------------------------------
+    // INIT RENDER AWAL (pakai data default sambil tunggu API)
+    // -------------------------------------------------------
+
+    // Lightning diupdate real-time oleh Blitzortung WebSocket
+
+    render();
+  </script>
+  <!-- ===================== MAP SCRIPT ===================== -->
+  <script>
+    // -------------------------------------------------------
+    // GEO DATA — koordinat per region & gardu induk
+    // -------------------------------------------------------
+    const regionGeo = {
+      pontianak:  { lat: -0.0263, lng: 109.3425, zoom: 11 },
+      singkawang: { lat:  0.9069, lng: 108.9859, zoom: 11 },
+      ketapang:   { lat: -1.8595, lng: 110.0169, zoom: 11 },
+      sanggau:    { lat:  0.1284, lng: 110.5993, zoom: 11 },
+      mempawah:   { lat:  0.3641, lng: 108.9551, zoom: 11 },
+    };
+
+    const stationGeo = {
+      pontianak: [
+        { name: 'GI Siantan 150kV',   lat: 0.0350,  lng: 109.3200, status: 'normal', icon: '⚡' },
+        { name: 'GI Sei Raya 150kV', lat: -0.07315,  lng: 109.3812, status: 'normal', icon: '⚡' },
+        { name: 'PLTD Sei Raya',      lat: -0.07252,  lng: 109.37991, status: 'normal', icon: '🏭' },
+        { name: 'GI Jeruju 20kV',     lat: -0.0480,  lng: 109.2980, status: 'normal', icon: '⚡' },
+      ],
+      singkawang: [
+        { name: 'GI Singkawang 70kV', lat:  0.92683,  lng: 108.98759, status: 'normal', icon: '⚡' },
+        { name: 'PLTD Sei Wie',    lat:  0.9256,  lng: 108.9872, status: 'normal', icon: '🏭' },
+        { name: 'GI Sambas 70kV',     lat:  1.3432978136971578,  lng: 109.2689385693158, status: 'normal', icon: '⚡' },
+      ],
+      ketapang: [
+        { name: 'GI Ketapang 150kV',  lat: -1.8350,  lng: 110.0050, status: 'normal', icon: '⚡' },
+        { name: 'PLTU Ketapang',      lat: -1.8900,  lng: 110.0350, status: 'normal', icon: '🏭' },
+      ],
+      sanggau: [
+        { name: 'GI Sanggau 70kV',    lat:  0.1284,  lng: 110.5993, status: 'normal', icon: '⚡' },
+        { name: 'GI Sekadau',         lat: -0.0400,  lng: 110.8000, status: 'normal', icon: '⚡' },
+        { name: 'PLTU Sanggau',       lat:  0.1800,  lng: 110.5400, status: 'normal', icon: '💧' },
+      ],
+      mempawah: [
+        { name: 'GI Senggiring 70kV', lat:  0.31466,  lng: 108.98801, status: 'normal', icon: '⚡' },
+      ],
+    };
+
+    // Jalur transmisi antar gardu (pasangan lat/lng)
+    const transmisiLines = [
+      // Pontianak - Singkawang
+      [[-0.0300, 109.3350], [0.9069, 108.9859]],
+      // Pontianak - Sanggau
+      [[-0.0300, 109.3350], [0.1284, 110.5993]],
+      // Sanggau - Sekadau
+      [[0.1284, 110.5993], [-0.0400, 110.8000]],
+      // Sanggau - Mempawah
+      [[0.1284, 110.5993], [0.36416, 108.95516]],
+      // Pontianak - Ketapang
+      [[-0.0300, 109.3350], [-1.8350, 110.0050]],
+    ];
+
+    // -------------------------------------------------------
+    // MAP INIT
+    // -------------------------------------------------------
+    const map = L.map('weatherMap', {
+      center: [-0.5, 110.0],
+      zoom: 8,
+      zoomControl: true,
+      attributionControl: true,
+    });
+
+    // Base tile layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
+      maxZoom: 18,
+    }).addTo(map);
+
+    // Layer groups
+    const layerStations  = L.layerGroup().addTo(map);
+    const layerRegions   = L.layerGroup().addTo(map);
+    const layerRisk      = L.layerGroup().addTo(map);
+    const layerTransmisi = L.layerGroup().addTo(map);
+
+    const layerState = { stations: true, regions: true, risk: true, transmisi: true };
+
+    // -------------------------------------------------------
+    // HELPERS
+    // -------------------------------------------------------
+    function statusColor(s) {
+      return s === 'alert' ? '#ef4444' : s === 'warn' ? '#f59e0b' : '#22c55e';
+    }
+
+    function weatherIcon(regionKey) {
+      const d = regions[regionKey];
+      if (d.lightning > 5) return '⛈';
+      if (d.rain > 20) return '🌧';
+      if (d.rain > 5)  return '🌦';
+      if (d.humid > 85) return '🌥';
+      return '☀️';
+    }
+
+    function riskLevel(val) {
+      return val >= 70 ? 'Tinggi' : val >= 40 ? 'Sedang' : 'Rendah';
+    }
+
+    // -------------------------------------------------------
+    // BUILD STATION MARKERS
+    // -------------------------------------------------------
+    // Offset cuaca berdasarkan JARAK dari pusat wilayah
+    // — gardu berdekatan → offset mirip; gardu jauh → offset lebih besar
+    // Deterministik: dihitung sekali, tidak berubah setiap render
+    const stationWeatherOffset = {};
+    (function initOffsets() {
+      // Hitung jarak Haversine sederhana dalam km
+      function distKm(lat1, lng1, lat2, lng2) {
+        const R = 6371;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLng = (lng2 - lng1) * Math.PI / 180;
+        const a = Math.sin(dLat/2)**2 +
+                  Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2)**2;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      }
+
+      // Seed hash deterministik dari nama gardu
+      function seededRand(str) {
+        let h = 0;
+        for (let i = 0; i < str.length; i++) h = Math.imul(31, h) + str.charCodeAt(i) | 0;
+        // Kembalikan nilai -1..1
+        return ((h >>> 0) % 1000) / 500 - 1;
+      }
+
+      for (const [rKey, stations] of Object.entries(stationGeo)) {
+        const center = regionGeo[rKey];
+        stationWeatherOffset[rKey] = stations.map(st => {
+          const dist = distKm(center.lat, center.lng, st.lat, st.lng);
+          // Skala offset proporsional jarak: maks ~2°C per 30 km
+          const scale = Math.min(dist / 30, 1.0);
+          const r = seededRand(st.name); // -1..1, deterministik per nama
+          return {
+            dTemp:  parseFloat((r * 2.0 * scale).toFixed(1)),
+            dHumid: Math.round(r * 6  * scale),
+            dWind:  Math.round(Math.abs(r) * 5 * scale) * (r >= 0 ? 1 : -1),
+            dRain:  parseFloat((r * 3.0 * scale).toFixed(1)),
+          };
+        });
+      }
+    })();
+
+    function buildStationMarkers() {
+      layerStations.clearLayers();
+
+      // Sinkronkan status stationGeo dari regions.stations (yang sudah diupdate real-time)
+      for (const [rKey, stations] of Object.entries(stationGeo)) {
+        const regionSt = regions[rKey]?.stations || [];
+        stations.forEach((st, i) => {
+          if (regionSt[i]) st.status = regionSt[i].status;
+        });
+      }
+
+      for (const [rKey, stations] of Object.entries(stationGeo)) {
+        const rd = regions[rKey];
+
+        stations.forEach((st, i) => {
+          const off = stationWeatherOffset[rKey][i] || { dTemp: 0, dHumid: 0, dWind: 0, dRain: 0 };
+
+          // Semua data dihitung dari region (Open-Meteo) + offset jarak
+          // TIDAK pakai regionStations[i].temp karena itu data hardcoded lama
+          const stTemp   = parseFloat((rd.temp  + off.dTemp ).toFixed(1));
+          const stHumid  = Math.min(100, Math.max(40, Math.round(rd.humid + off.dHumid)));
+          const stWind   = Math.max(0,   Math.round(rd.wind  + off.dWind ));
+          const stRain   = Math.max(0,   parseFloat((rd.rain  + off.dRain ).toFixed(1)));
+          const stLight  = rd.lightning;
+
+          // Icon cuaca berdasarkan kondisi gardu ini (bukan wilayah)
+          let wIcon = '☀️';
+          if (stLight > 5)      wIcon = '⛈';
+          else if (stRain > 20) wIcon = '🌧';
+          else if (stRain > 5)  wIcon = '🌦';
+          else if (stHumid > 85) wIcon = '🌥';
+
+          const html = `
+            <div class="weather-marker status-${st.status}">
+              <div class="marker-weather">${st.icon} ${wIcon}</div>
+              <div class="marker-temp">${stTemp.toFixed(1)}°C</div>
+              <div class="marker-name">${st.name}</div>
+            </div>`;
+
+          const icon = L.divIcon({ html, className: '', iconAnchor: [48, 40] });
+          const marker = L.marker([st.lat, st.lng], { icon });
+
+          const statusLabel = st.status === 'alert' ? '🚨 Kritis' : st.status === 'warn' ? '⚠️ Waspada' : '✅ Normal';
+          const statusBg    = st.status === 'alert' ? '#fee2e2' : st.status === 'warn' ? '#fef9c3' : '#dcfce7';
+          const statusClr   = st.status === 'alert' ? '#991b1b' : st.status === 'warn' ? '#854d0e' : '#166534';
+
+          marker.bindPopup(`
+            <div class="map-popup">
+              <div class="popup-header">⚡ ${st.name}</div>
+              <div class="popup-grid">
+                <div class="popup-item">
+                  <div class="popup-item-label">Suhu</div>
+                  <div class="popup-item-val">${stTemp.toFixed(1)}°C</div>
+                </div>
+                <div class="popup-item">
+                  <div class="popup-item-label">Kelembaban</div>
+                  <div class="popup-item-val">${stHumid}%</div>
+                </div>
+                <div class="popup-item">
+                  <div class="popup-item-label">Angin</div>
+                  <div class="popup-item-val">${stWind} km/j</div>
+                </div>
+                <div class="popup-item">
+                  <div class="popup-item-label">Curah Hujan</div>
+                  <div class="popup-item-val">${stRain.toFixed(1)} mm</div>
+                </div>
+                <div class="popup-item">
+                  <div class="popup-item-label">Petir</div>
+                  <div class="popup-item-val">${stLight} kej.</div>
+                </div>
+              </div>
+              <div class="popup-status" style="background:${statusBg}; color:${statusClr}">
+                ${statusLabel}
+              </div>
+              <div style="font-size:10px; color:#94a3b8; text-align:center; margin-top:6px">
+                Klik tab wilayah untuk detail lengkap
+              </div>
+            </div>
+          `, { maxWidth: 260 });
+
+          marker.addTo(layerStations);
+        });
+      }
+    }
+
+    // -------------------------------------------------------
+    // BUILD REGION LABELS
+    // -------------------------------------------------------
+    function buildRegionLabels() {
+      layerRegions.clearLayers();
+      const regionNames = {
+        pontianak: 'Pontianak', singkawang: 'Singkawang',
+        ketapang: 'Ketapang', sanggau: 'Sanggau', mempawah: 'Mempawah',
+      };
+      for (const [rKey, geo] of Object.entries(regionGeo)) {
+        const d = regions[rKey];
+        const wIcon = weatherIcon(rKey);
+        const html = `<div class="region-label">${wIcon} ${regionNames[rKey]} ${d.temp.toFixed(1)}°C</div>`;
+        const icon = L.divIcon({ html, className: '', iconAnchor: [55, -5] });
+        L.marker([geo.lat, geo.lng], { icon, interactive: false }).addTo(layerRegions);
+      }
+    }
+
+    // -------------------------------------------------------
+    // BUILD RISK CIRCLES
+    // -------------------------------------------------------
+    function buildRiskCircles() {
+      layerRisk.clearLayers();
+      for (const [rKey, geo] of Object.entries(regionGeo)) {
+        const d = regions[rKey];
+        const maxRisk = Math.max(d.risks.petir, d.risks.banjir, d.risks.angin);
+        const color = maxRisk >= 70 ? '#ef4444' : maxRisk >= 40 ? '#f59e0b' : '#22c55e';
+        const radius = 8000 + (maxRisk / 100) * 22000;
+        L.circle([geo.lat, geo.lng], {
+          color,
+          fillColor: color,
+          fillOpacity: 0.08,
+          weight: 1.5,
+          dashArray: maxRisk >= 70 ? '6,4' : null,
+          radius,
+        }).addTo(layerRisk);
+      }
+    }
+
+    // -------------------------------------------------------
+    // BUILD TRANSMISI LINES
+    // -------------------------------------------------------
+    function buildTransmisiLines() {
+      layerTransmisi.clearLayers();
+      transmisiLines.forEach(pts => {
+        // Cek apakah jalur melewati area dengan risiko tinggi
+        const isAlert = regions.sanggau.risks.petir >= 70;
+        L.polyline(pts, {
+          color: isAlert ? '#f59e0b' : '#003087',
+          weight: 2,
+          opacity: 0.5,
+          dashArray: isAlert ? '8,5' : null,
+        }).addTo(layerTransmisi);
+      });
+    }
+
+    // -------------------------------------------------------
+    // LAYER TOGGLE
+    // -------------------------------------------------------
+    function toggleLayer(name) {
+      layerState[name] = !layerState[name];
+      const chip = document.getElementById('chip' + name.charAt(0).toUpperCase() + name.slice(1));
+      chip.classList.toggle('on', layerState[name]);
+
+      const layerMap = { stations: layerStations, regions: layerRegions, risk: layerRisk, transmisi: layerTransmisi };
+      if (layerState[name]) map.addLayer(layerMap[name]);
+      else map.removeLayer(layerMap[name]);
+    }
+
+    // -------------------------------------------------------
+    // MAP FOCUS
+    // -------------------------------------------------------
+    function mapFocusAll() {
+      map.flyTo([-0.5, 110.0], 8, { duration: 1 });
+      document.getElementById('btnAllRegions').classList.add('active');
+      document.getElementById('btnFocusCurrent').classList.remove('active');
+    }
+
+    function mapFocusCurrent() {
+      const geo = regionGeo[currentRegion];
+      map.flyTo([geo.lat, geo.lng], geo.zoom, { duration: 1 });
+      document.getElementById('btnFocusCurrent').classList.add('active');
+      document.getElementById('btnAllRegions').classList.remove('active');
+    }
+
+    // -------------------------------------------------------
+    // SYNC MAP WHEN TAB CHANGES
+    // -------------------------------------------------------
+    const origTabClick = document.getElementById('tabs').onclick;
+    document.getElementById('tabs').addEventListener('click', function(e) {
+      const tab = e.target.closest('.tab');
+      if (!tab) return;
+      // slight delay so currentRegion is updated first
+      setTimeout(() => {
+        if (!document.getElementById('btnAllRegions').classList.contains('active')) {
+          mapFocusCurrent();
+        }
+        refreshMap();
+      }, 50);
+    });
+
+    // -------------------------------------------------------
+    // FULL MAP REFRESH (called after data update)
+    // -------------------------------------------------------
+    function refreshMap() {
+      buildStationMarkers();
+      buildRegionLabels();
+      buildRiskCircles();
+      buildTransmisiLines();
+    }
+
+    // -------------------------------------------------------
+    // BLITZORTUNG WEBSOCKET — Petir Real-Time
+    // Radius deteksi: 200 km dari pusat tiap wilayah
+    // -------------------------------------------------------
+    const LTNG_RADIUS_KM = 200;
+    const LTNG_WINDOW_MS = 30 * 60 * 1000; // 30 menit terakhir
+    const ltngBuffer = []; // { lat, lon, time, regionKey }
+    let   ltngWs = null;
+    let   ltngReconnectTimer = null;
+
+    // Koordinat pusat wilayah (sama dengan regionGeo)
+    const ltngRegionCoords = {
+      pontianak:  { lat: -0.0263, lng: 109.3425 },
+      singkawang: { lat:  0.9069, lng: 108.9859 },
+      ketapang:   { lat: -1.8595, lng: 110.0169 },
+      sanggau:    { lat:  0.1284, lng: 110.5993 },
+      mempawah:   { lat:  0.3641, lng: 108.9551 },
+    };
+
+    function ltngHaversine(lat1, lng1, lat2, lng2) {
+      const R = 6371, toRad = d => d * Math.PI / 180;
+      const dLat = toRad(lat2 - lat1), dLng = toRad(lng2 - lng1);
+      const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng/2)**2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    function ltngFindRegion(lat, lng) {
+      let closest = null, minDist = Infinity;
+      for (const [key, c] of Object.entries(ltngRegionCoords)) {
+        const d = ltngHaversine(lat, lng, c.lat, c.lng);
+        if (d < LTNG_RADIUS_KM && d < minDist) { minDist = d; closest = key; }
+      }
+      return closest; // null jika di luar semua radius
+    }
+
+    function ltngUpdateCounts() {
+      const now = Date.now();
+      // Buang yang sudah lebih dari 30 menit
+      while (ltngBuffer.length && (now - ltngBuffer[0].time) > LTNG_WINDOW_MS)
+        ltngBuffer.shift();
+
+      // Hitung per wilayah
+      const counts = { pontianak:0, singkawang:0, ketapang:0, sanggau:0, mempawah:0 };
+      let total = 0;
+      ltngBuffer.forEach(s => { if (s.regionKey) { counts[s.regionKey]++; total++; } });
+
+      // Update regions.lightning
+      let anyChange = false;
+      for (const key in regions) {
+        if (regions[key].lightning !== counts[key]) {
+          regions[key].lightning = counts[key];
+          regions[key].risks = calcRisks(regions[key]);
+          anyChange = true;
+        }
+      }
+
+      // Update counter di Windy info bar
+      const el = document.getElementById('ltngCountTotal');
+      if (el) el.textContent = total;
+
+      if (anyChange) {
+        render();
+        if (typeof refreshMap === 'function') refreshMap();
+      }
+    }
+
+    function ltngConnect() {
+      if (ltngWs && ltngWs.readyState <= 1) return; // sudah konek atau connecting
+
+      // Blitzortung region 9 = Asia Tenggara
+      const WS_URLS = [
+        'wss://ws.blitzortung.org/4/1/',
+        'wss://ws.blitzortung.org/6/1/',
+        'wss://ws.blitzortung.org/8/1/',
+      ];
+      const url = WS_URLS[Math.floor(Math.random() * WS_URLS.length)];
+
+      try {
+        ltngWs = new WebSocket(url);
+
+        ltngWs.onopen = () => {
+          console.log('[⚡] Blitzortung WS connected:', url);
+          ltngWs.send(JSON.stringify({ west: 105, east: 118, south: -6, north: 5 }));
+          addLog('⚡ Blitzortung WebSocket terhubung — petir real-time aktif', 'info');
+          window._ltngWsStatus = { text: '● LIVE', color: '#22c55e' };
+          const el = document.getElementById('ltng-ws-status');
+          if (el) { el.textContent = '● LIVE'; el.style.color = '#22c55e'; }
+          render();
+        };
+
+        ltngWs.onmessage = (evt) => {
+          try {
+            const stroke = JSON.parse(evt.data);
+            // Format Blitzortung: { lat, lon, time } — time dalam nanoseconds atau ms
+            let lat = stroke.lat, lng = stroke.lon;
+            if (lat === undefined) return;
+
+            // time: nanoseconds jika > 1e12, ms jika < 1e12
+            const timeMs = stroke.time > 1e12 ? stroke.time / 1e6 : stroke.time;
+            const regionKey = ltngFindRegion(lat, lng);
+
+            ltngBuffer.push({ lat, lng: lng, time: timeMs || Date.now(), regionKey });
+
+            // Log jika di wilayah kita
+            if (regionKey) {
+              const name = regionNames[regionKey];
+              const count = regions[regionKey].lightning;
+              const t = new Date(timeMs || Date.now())
+                .toLocaleTimeString('id-ID', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+
+              // Log hanya setiap sambaran ke-1, ke-5, ke-10, ke-20, dst (bukan setiap sambaran)
+              const newCount = ltngBuffer.filter(s => s.regionKey === regionKey).length;
+              if (newCount === 1)
+                addLog(`⚡ Sambaran petir pertama terdeteksi di sekitar ${name}`, 'warn', t);
+              else if (newCount === 5)
+                addLog(`⚡ 5 sambaran petir terdeteksi di sekitar ${name}`, 'warn', t);
+              else if (newCount % 10 === 0)
+                addLog(`⚡ ${newCount} sambaran petir terdeteksi di sekitar ${name}`, newCount >= 20 ? 'alert' : 'warn', t);
+            }
+
+            ltngUpdateCounts();
+          } catch(e) { /* skip invalid message */ }
+        };
+
+        ltngWs.onerror = () => {
+          console.warn('[⚡] Blitzortung WS error, akan reconnect...');
+        };
+
+        ltngWs.onclose = () => {
+          console.warn('[⚡] Blitzortung WS closed, reconnect dalam 30 detik');
+          window._ltngWsStatus = { text: '● Reconnecting', color: '#f59e0b' };
+          const el = document.getElementById('ltng-ws-status');
+          if (el) { el.textContent = '● Reconnecting'; el.style.color = '#f59e0b'; }
+          ltngReconnectTimer = setTimeout(ltngConnect, 30000);
+        };
+
+      } catch(e) {
+        console.warn('[⚡] Blitzortung WS gagal dibuka:', e.message);
+        ltngReconnectTimer = setTimeout(ltngConnect, 60000);
+      }
+    }
+
+    // Bersihkan buffer setiap 5 menit & update counts
+    setInterval(ltngUpdateCounts, 1 * 60 * 1000);
+
+    // Mulai WebSocket setelah halaman siap
+    setTimeout(ltngConnect, 2000);
+
+    // -------------------------------------------------------
+    // INIT MAP
+    // -------------------------------------------------------
+    refreshMap();
+
+  </script>
+</body>
+</html>
